@@ -1,16 +1,15 @@
 # Faster FID score for PyTorch
 
-This is a modified implementation of [pytorch-fid](https://github.com/mseitzer/pytorch-fid). The main purpose of this refined version is to replace the computation of [matrix square root](https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.sqrtm.html) with PyTorch in GPU that is originally implemented with SciPy in CPU. It can accelerate the calculation of Fréchet Inception Distance from 5 minutes to 30 seconds with the help of GPU in my environment (when `dims=2048`).
+This repository provides a modified implementation of [pytorch-fid](https://github.com/mseitzer/pytorch-fid) that accelerates the computation of the Fréchet Inception Distance (FID) score by replacing the computation of the matrix square root, originally implemented with SciPy on CPU, with PyTorch on GPU. This implementation can compute the FID score up to **10 times faster**, reducing the computation time from 6 minutes to 30 seconds on a GPU for a feature dimensionality of 2048.
 
 ## Installation
 
-Install from [pip](https://pypi.org/project/pytorch-fid/):
-
+To install this implementation, clone the repository and navigate to its directory:
 ```
-pip install pytorch-fid
+git clone https://github.com/jaywu109/faster-pytorch-fid.git
+cd faster-pytorch-fid
 ```
-
-Requirements:
+This implementation requires the following dependencies:
 - python3
 - pytorch
 - torchvision
@@ -18,19 +17,30 @@ Requirements:
 - numpy
 - scipy
 
+The implementation has been tested on the following package versions:
+- python==3.9.16 
+- pytorch==1.12.1
+- torchvision==0.13.1
+- pillow==9.4.0 
+- numpy==1.22.3  
+- scipy==1.10.1 
+
 ## Usage
 
-Please refer to original pytorch-fid repo for detailed usage.
+To compute the FID score between two datasets, where images of each dataset are contained in an individual folder:
+```
+python -m fid_score_gpu.py path/to/dataset1 path/to/dataset2
+```
+
+To run the evaluation on GPU, use the flag `--device cuda:N`, where `N` is the index of the GPU to use. **Note that this implementation would not show significant improvement if run on a CPU.**
 
 ## Detailed Refinement
 
-In some circumestances, The orginal pytorch-fid takes a very long time to computer the FID metrics. After diving into the implementation, I noticed the major bottelneck is for calculating matrix square root with SciPy (scipy.linalg.sqrtm) as below:
+The original implementation of pytorch-fid often takes a long time to compute the FID score. After investigating the implementation, we identified that the major bottleneck is the computation of the matrix square root with SciPy's [scipy.linalg.sqrtm](https://github.com/scipy/scipy/blob/v1.10.1/scipy/linalg/_matfuncs_sqrtm.py#L117-L210) function, which involves multiple dot product operations with NumPy. For feature dimensionality of 2048 (final average pooling features), it can take a long time to compute dot products with CPU for matrices of size 2048x2048.
 
-https://github.com/jaywu109/faster-pytorch-fid/blob/aff60dcff18a927f640042bf08021f643828033f/fid_score.py#L188
+We attempted to use CuPy to replace the SciPy's sqrtm function, but found that it is currently [not supported](https://docs.cupy.dev/en/stable/reference/comparison.html). Instead, we focused on optimizing the most time-consuming part of the function by replacing the dot product operation with `torch.matmul` and running it on a GPU. This approach was simpler than changing all NumPy operations in sqrtm to their PyTorch equivalents, which may not have resulted in significant improvement. An example of the modified code can be seen in the torch_sqrtm.py file.
 
-A detailed investigation showd that there exist multiple numpy dot product operations in the [sqrtm](https://github.com/scipy/scipy/blob/v1.10.1/scipy/linalg/_matfuncs_sqrtm.py#L117-L210). When using default dimensionality of features of 2048 (final average pooling features), it would be really slow to compute dot product for metrics with size of `2048x2048` with CPU. 
-
-My firt intuition is to replace the sqrtm in SciPy with the one from CuPy with GPU support. However, it's currently not supported for now according to the [comparison table](https://docs.cupy.dev/en/stable/reference/comparison.html). To improve the computation efficiency with minimal effort for refactoring the code, I decided to merly change the dot product operation with `torch.matmul` and put the operation on GPU in sqrtm function that cost most of the time, instead of changing all the numpy operaitons in sqrtm with torch equvilences that may not result in significat improvement.
+https://github.com/jaywu109/faster-pytorch-fid/blob/e2073cbc99c2d4840d60b5654bd0ed0decadb670/torch_sqrtm.py#L40-L43
 
 
 ## Citing
@@ -38,13 +48,11 @@ My firt intuition is to replace the sqrtm in SciPy with the one from CuPy with G
 If you use this repository in your research, consider citing it using the following Bibtex entry:
 
 ```
-@misc{Seitzer2020FID,
-  author={Maximilian Seitzer},
-  title={{pytorch-fid: FID Score for PyTorch}},
-  month={August},
-  year={2020},
-  note={Version 0.3.0},
-  howpublished={\url{https://github.com/mseitzer/pytorch-fid}},
+@misc{githubGitHubJaywu109fasterpytorchfid,
+	author = {Wu, Dai-Jie},
+	title = {{G}it{H}ub - jaywu109/faster-pytorch-fid --- github.com},
+	howpublished = {\url{https://github.com/jaywu109/faster-pytorch-fid}},
+	year = {2023},
 }
 ```
 
@@ -56,3 +64,5 @@ FID was introduced by Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernha
 
 The original implementation is by the Institute of Bioinformatics, JKU Linz, licensed under the Apache License 2.0.
 See [https://github.com/bioinf-jku/TTUR](https://github.com/bioinf-jku/TTUR).
+
+This is the refined version of **pytorch-fid**. See [https://github.com/mseitzer/pytorch-fid](https://github.com/mseitzer/pytorch-fid).
