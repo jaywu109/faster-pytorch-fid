@@ -1,17 +1,6 @@
-[![PyPI](https://img.shields.io/pypi/v/pytorch-fid.svg)](https://pypi.org/project/pytorch-fid/)
+# Faster FID score for PyTorch
 
-# FID score for PyTorch
-
-This is a port of the official implementation of [Fréchet Inception Distance](https://arxiv.org/abs/1706.08500) to PyTorch.
-See [https://github.com/bioinf-jku/TTUR](https://github.com/bioinf-jku/TTUR) for the original implementation using Tensorflow.
-
-FID is a measure of similarity between two datasets of images.
-It was shown to correlate well with human judgement of visual quality and is most often used to evaluate the quality of samples of Generative Adversarial Networks.
-FID is calculated by computing the [Fréchet distance](https://en.wikipedia.org/wiki/Fr%C3%A9chet_distance) between two Gaussians fitted to feature representations of the Inception network.
-
-Further insights and an independent evaluation of the FID score can be found in [Are GANs Created Equal? A Large-Scale Study](https://arxiv.org/abs/1711.10337).
-
-The weights and the model are exactly the same as in [the official Tensorflow implementation](https://github.com/bioinf-jku/TTUR), and were tested to give very similar results (e.g. `.08` absolute error and `0.0009` relative error on LSUN, using ProGAN generated images). However, due to differences in the image interpolation implementation and library backends, FID results still differ slightly from the original implementation. So if you report FID scores in your paper, and you want them to be *exactly comparable* to FID scores reported in other papers, you should consider using [the official Tensorflow implementation](https://github.com/bioinf-jku/TTUR).
+This is a modified implementation of [pytorch-fid](https://github.com/mseitzer/pytorch-fid). The main purpose of this refined version is to replace the computation of [matrix square root](https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.sqrtm.html) with PyTorch in GPU that is originally implemented with SciPy in CPU. It can accelerate the calculation of Fréchet Inception Distance from 5 minutes to 30 seconds with the help of GPU in my environment (when `dims=2048`).
 
 ## Installation
 
@@ -31,37 +20,18 @@ Requirements:
 
 ## Usage
 
-To compute the FID score between two datasets, where images of each dataset are contained in an individual folder:
-```
-python -m pytorch_fid path/to/dataset1 path/to/dataset2
-```
+Please refer to original pytorch-fid repo for detailed usage.
 
-To run the evaluation on GPU, use the flag `--device cuda:N`, where `N` is the index of the GPU to use.
+## Detailed Refinement
 
-### Using different layers for feature maps
+In some circumestances, The orginal pytorch-fid takes a very long time to computer the FID metrics. After diving into the implementation, I noticed the major bottelneck is for calculating matrix square root with SciPy (scipy.linalg.sqrtm) as below:
 
-In difference to the official implementation, you can choose to use a different feature layer of the Inception network instead of the default `pool3` layer.
-As the lower layer features still have spatial extent, the features are first global average pooled to a vector before estimating mean and covariance.
+https://github.com/jaywu109/faster-pytorch-fid/blob/aff60dcff18a927f640042bf08021f643828033f/fid_score.py#L188
 
-This might be useful if the datasets you want to compare have less than the otherwise required 2048 images.
-Note that this changes the magnitude of the FID score and you can not compare them against scores calculated on another dimensionality.
-The resulting scores might also no longer correlate with visual quality.
+A detailed investigation showd that there exist multiple numpy dot product operations in the [sqrtm](https://github.com/scipy/scipy/blob/v1.10.1/scipy/linalg/_matfuncs_sqrtm.py#L117-L210). When using default dimensionality of features of 2048 (final average pooling features), it would be really slow to compute dot product for metrics with size of `2048x2048` with CPU. 
 
-You can select the dimensionality of features to use with the flag `--dims N`, where N is the dimensionality of features.
-The choices are:
-- 64:   first max pooling features
-- 192:  second max pooling features
-- 768:  pre-aux classifier features
-- 2048: final average pooling features (this is the default)
+My firt intuition is to replace the sqrtm in SciPy with the one from CuPy with GPU support. However, it's currently not supported for now according to the [comparison table](https://docs.cupy.dev/en/stable/reference/comparison.html). To improve the computation efficiency with minimal effort for refactoring the code, I decided to merly change the dot product operation with `torch.matmul` and put the operation on GPU in sqrtm function that cost most of the time, instead of changing all the numpy operaitons in sqrtm with torch equvilences that may not result in significat improvement.
 
-## Generating a compatible `.npz` archive from a dataset
-A frequent use case will be to compare multiple models against an original dataset.
-To save training multiple times on the original dataset, there is also the ability to generate a compatible `.npz` archive from a dataset. This is done using any combination of the previously mentioned arguments with the addition of the `--save-stats` flag. For example:
-```
-python -m pytorch_fid --save-stats path/to/dataset path/to/outputfile
-```
-
-The output file may then be used in place of the path to the original dataset for further comparisons.
 
 ## Citing
 
