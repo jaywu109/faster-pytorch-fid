@@ -49,10 +49,19 @@ If you use this repository in your research, consider citing it using the follow
 
 ```
 @misc{githubGitHubJaywu109fasterpytorchfid,
-	author = {Wu, Dai-Jie},
-	title = {{G}it{H}ub - jaywu109/faster-pytorch-fid --- github.com},
-	howpublished = {\url{https://github.com/jaywu109/faster-pytorch-fid}},
-	year = {2023},
+  author = {Wu, Dai-Jie},
+  title = {{G}it{H}ub - jaywu109/faster-pytorch-fid --- github.com},
+  howpublished = {\url{https://github.com/jaywu109/faster-pytorch-fid}},
+  year = {2023},
+}
+
+@misc{Seitzer2020FID,
+  author={Maximilian Seitzer},
+  title={{pytorch-fid: FID Score for PyTorch}},
+  month={August},
+  year={2020},
+  note={Version 0.3.0},
+  howpublished={\url{https://github.com/mseitzer/pytorch-fid}},
 }
 ```
 
