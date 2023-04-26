@@ -2,9 +2,9 @@
 
 This repository provides a modified implementation of [pytorch-fid](https://github.com/mseitzer/pytorch-fid) that accelerates the computation of the Fréchet Inception Distance (FID) score by replacing the computation of the matrix square root, originally implemented with SciPy on CPU, with PyTorch on GPU. This implementation can compute the FID score (`calculate_frechet_distance` function) up to **10 times faster**, reducing the computation time from 6 minutes to 30 seconds on a GPU for a feature dimensionality of 2048.
 
-## Installation
+## Environment Setting
 
-To install this implementation, clone the repository and navigate to its directory:
+To use this implementation, clone the repository and navigate to its directory:
 ```
 git clone https://github.com/jaywu109/faster-pytorch-fid.git
 cd faster-pytorch-fid
